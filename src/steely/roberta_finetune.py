@@ -4,7 +4,7 @@ from transformers import RobertaTokenizer, RobertaForSequenceClassification, Tra
 from sklearn.model_selection import train_test_split
 import torch
 
-from steely import DATA_TASK_1_DIR
+from steely import DATA_TASK_1_DIR, ROOT_DIR
 
 # === 1. Load your dataset ===
 df = pl.read_ndjson(DATA_TASK_1_DIR / "train.jsonl").select(["text", "label"])
@@ -77,5 +77,6 @@ results = trainer.evaluate()
 print(results)
 
 # === 10. Save model ===
-trainer.save_model("./roberta-text-detector")
-tokenizer.save_pretrained("./roberta-text-detector")
+model_dir = ROOT_DIR / "roberta-text-detector"
+trainer.save_model(model_dir)
+tokenizer.save_pretrained(model_dir)

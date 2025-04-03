@@ -8,11 +8,15 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "accelerate>=1.6.0",
+    "datasets>=3.5.0",
     "ipykernel>=6.29.5",
     "matplotlib>=3.10.1",
     "numpy>=2.2.4",
     "polars>=1.26.0",
+    "scikit-learn>=1.6.1",
     "torch>=2.6.0",
+    "transformers>=4.50.3",
 ]
 
 [project.scripts]

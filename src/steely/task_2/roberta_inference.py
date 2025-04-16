@@ -8,6 +8,7 @@ import json
 import os
 
 from steely import DATA_TASK_2_DIR, ROOT_DIR
+from sklearn.metrics import accuracy_score, f1_score, recall_score, confusion_matrix
 
 # === Config ===
 MODEL_DIR = ROOT_DIR / "roberta-text-detector"
@@ -22,8 +23,12 @@ tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
 model = RobertaForSequenceClassification.from_pretrained(MODEL_DIR)
 model.eval()
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+model = model.to(device)
+
 # === Load input data ===
-df = pl.read_ndjson(INPUT_FILE).select(["text"])
+df = pl.read_ndjson(INPUT_FILE).select(["text", "label"])
 # Add an id column that enumerates everything
 df = df.with_columns(pl.Series("id", range(len(df))))
 # Shorten the dataset to 500 samples for faster inference
@@ -37,31 +42,39 @@ def tokenize(batch):
     return tokenizer(batch["text"], truncation=True, padding=True)
 
 dataset = dataset.map(tokenize, batched=True)
-dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "id"])
-
+dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "id", "label"])
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE)
 
 # === Inference ===
+true_labels = []
+predicted_labels = []
 results = []
+
 with torch.no_grad():
     for batch in tqdm(dataloader):
-        input_ids = batch["input_ids"]
-        attention_mask = batch["attention_mask"]
+        input_ids = batch["input_ids"].to(device)
+        attention_mask = batch["attention_mask"].to(device)
         ids = batch["id"]
+        labels = batch["label"]
 
         outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-        probs = torch.softmax(outputs.logits, dim=1)[:, 1].tolist()  # probability for label 1
+        probs = torch.softmax(outputs.logits, dim=1)[:, 1].tolist()
+        preds = (torch.tensor(probs) > 0.5).int().tolist()
+
+        true_labels.extend(labels.tolist())
+        predicted_labels.extend(preds)
 
         for id_, prob in zip(ids, probs):
             results.append({"id": id_, "label": round(prob, 4)})
 
-# === Save to JSONL ===
-with open(OUTPUT_FILE, "w") as f:
-    for entry in results:
-        entry = {
-            "id": entry["id"].item(),
-            "label": entry["label"],
-        }
-        f.write(json.dumps(entry) + "\n")
+# === Metrics ===
+accuracy = accuracy_score(true_labels, predicted_labels)
+macro_f1 = f1_score(true_labels, predicted_labels, average="macro")
+macro_recall = recall_score(true_labels, predicted_labels, average="macro")
+conf_matrix = confusion_matrix(true_labels, predicted_labels)
 
-print(f"Predictions saved to: {OUTPUT_FILE}")
+print(f"Accuracy: {accuracy:.4f}")
+print(f"Macro F1: {macro_f1:.4f}")
+print(f"Macro Recall: {macro_recall:.4f}")
+print("Confusion Matrix:")
+print(conf_matrix)

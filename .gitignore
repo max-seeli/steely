@@ -1,3 +1,8 @@
+# project-specific
+data/
+results/
+roberta-text-detector/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

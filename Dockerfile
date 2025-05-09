@@ -23,7 +23,5 @@ WORKDIR /app
 # Install Python dependencies
 RUN uv sync --locked
 
-RUN uv run python3 -c 'from transformers import RobertaTokenizer, RobertaForSequenceClassification; RobertaTokenizer.from_pretrained("roberta-base")'
-
 # Set the entrypoint to the inference script
 ENTRYPOINT ["uv", "run", "/app/src/steely/task_1/roberta_inference.py"]

@@ -2,6 +2,7 @@
 data/
 results/
 roberta-text-detector/
+roberta-base
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

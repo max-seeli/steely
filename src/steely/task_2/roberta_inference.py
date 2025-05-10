@@ -19,7 +19,7 @@ OUTPUT_FILE = os.path.join(OUTPUT_DIR, "predictions.jsonl")
 BATCH_SIZE = 16
 
 # === Load model & tokenizer ===
-tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+tokenizer = RobertaTokenizer.from_pretrained(ROOT_DIR / "roberta-base")
 model = RobertaForSequenceClassification.from_pretrained(MODEL_DIR)
 model.eval()
 

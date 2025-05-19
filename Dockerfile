@@ -24,4 +24,4 @@ WORKDIR /app
 RUN uv sync --locked
 
 # Set the entrypoint to the inference script
-ENTRYPOINT ["/app/.venv/bin/python3", "/app/src/steely/task_1/roberta_inference.py"]
+ENTRYPOINT ["/app/.venv/bin/python3", "/app/src/steely/task_1/correlation_signal_classifier.py"]

@@ -19,12 +19,19 @@ from sklearn.metrics import accuracy_score, f1_score
 from tqdm import tqdm, trange
 
 from steely import DATA_TASK_1_DIR, ROOT_DIR
+# Define a local directory to store the NLTK data
+NLTK_DATA_DIR = os.path.join(ROOT_DIR, "nltk_data")
+os.makedirs(NLTK_DATA_DIR, exist_ok=True)
+nltk.data.path.append(NLTK_DATA_DIR)
 
-nltk.download("punkt")
-nltk.download('punkt_tab')
-nltk.download("stopwords")
-nltk.download("wordnet")
-nltk.download("omw-1.4")
+# Download the required NLTK data if not already present
+required_packages = ["stopwords", "punkt_tab"]
+for package in required_packages:
+    if os.path.exists(os.path.join(NLTK_DATA_DIR, "corpora", package)) or os.path.exists(os.path.join(NLTK_DATA_DIR, "tokenizers", package)):
+        print(f"NLTK data package '{package}' already exists.")
+    else:
+        print(f"Downloading NLTK data package '{package}'...")
+        nltk.download(package, download_dir=NLTK_DATA_DIR)
 
 
 # ------------------------------------------------------------------
@@ -155,7 +162,7 @@ def calculate_word_correlations(vectorized_texts_tokens: Tuple[sp.csr_matrix, np
     vectorized_texts, tokens = vectorized_texts_tokens
     correlation_func = correlation_method.get_correlation_func()
     correlations = correlation_func(vectorized_texts, labels)
-    
+
     word_correlations = dict(
         zip(tokens, correlations))
 
@@ -171,9 +178,11 @@ def calculate_word_correlations(vectorized_texts_tokens: Tuple[sp.csr_matrix, np
 if __name__ == "__main__":
     parser = ArgumentParser(
         description="Calculate word correlations and predict.")
-    
-    parser.add_argument("input_file", type=str, help="Path to the input JSONL file for the predictions.", default=DATA_TASK_1_DIR / "val.jsonl")
-    parser.add_argument("output_dir", type=str, help="Directory to save the output predictions.", default=ROOT_DIR / "results" / "inference")
+
+    parser.add_argument("input_file", type=str, help="Path to the input JSONL file for the predictions.",
+                        default=DATA_TASK_1_DIR / "val.jsonl")
+    parser.add_argument("output_dir", type=str, help="Directory to save the output predictions.",
+                        default=ROOT_DIR / "results" / "inference")
 
     parser.add_argument(
         "--word-correlations-dir", type=str, default=None,
@@ -228,7 +237,8 @@ if __name__ == "__main__":
             vectorized_texts, tokens = vectorize_texts(
                 texts, vectorized_texts_dir=vectorized_texts_path)
 
-        print(f"Calculating word correlations using {correlation_method.value}...")
+        print(
+            f"Calculating word correlations using {correlation_method.value}...")
         word_correlations = calculate_word_correlations(
             (vectorized_texts, tokens), labels=labels, correlation_method=correlation_method, word_correlations_dir=word_correlations_path)
 
@@ -281,7 +291,8 @@ if __name__ == "__main__":
         for id, text, label in tqdm(zip(ids, texts, labels), total=len(ids)):
             signals.append(get_signal(text))
 
-        predictions = [1 if signal > best_threshold else 0 for signal in signals]
+        predictions = [1 if signal >
+                       best_threshold else 0 for signal in signals]
         accuracy = accuracy_score(labels, predictions)
         f1 = f1_score(labels, predictions)
         print(f"Validation accuracy: {accuracy:.4f}, F1: {f1:.4f}")
@@ -297,11 +308,11 @@ if __name__ == "__main__":
         signals.append(get_signal(text))
     predictions = [1 if signal > best_threshold else 0 for signal in signals]
 
-
     os.makedirs(args.output_dir, exist_ok=True)
     out_file = os.path.join(args.output_dir, "predictions.jsonl")
 
-    predictions = [{"id": id, "label": label} for id, label in zip(ids, predictions)]
+    predictions = [{"id": id, "label": label}
+                   for id, label in zip(ids, predictions)]
     with open(out_file, "w") as f:
         for entry in predictions:
             f.write(json.dumps(entry) + "\n")

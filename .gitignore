@@ -4,6 +4,7 @@ results/
 roberta-text-detector/
 roberta-base
 tmp
+nltk_data
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

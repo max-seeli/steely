@@ -18,7 +18,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import accuracy_score, f1_score
 from tqdm import tqdm, trange
 
-from steely import DATA_TASK_1_DIR
+from steely import DATA_TASK_1_DIR, ROOT_DIR
 
 nltk.download("punkt")
 nltk.download('punkt_tab')
@@ -37,7 +37,7 @@ stop_words = set(stopwords.words("english"))          # O(1) look-ups
 def stem_tokenise(text: str) -> list[str]:
     """Lower-case, tokenise, remove punctuation & stop-words, then stem."""
     tokens = [t for t in word_tokenize(text.lower())
-              if t.isalpha()]  # and t not in stop_words]
+              if t.isalpha() and t not in stop_words]
     return [stemmer.stem(t) for t in tokens]
 
 
@@ -170,7 +170,11 @@ def calculate_word_correlations(vectorized_texts_tokens: Tuple[sp.csr_matrix, np
 
 if __name__ == "__main__":
     parser = ArgumentParser(
-        description="Calculate word correlations and evaluate predictions.")
+        description="Calculate word correlations and predict.")
+    
+    parser.add_argument("input_file", type=str, help="Path to the input JSONL file for the predictions.", default=DATA_TASK_1_DIR / "val.jsonl")
+    parser.add_argument("output_dir", type=str, help="Directory to save the output predictions.", default=ROOT_DIR / "results" / "inference")
+
     parser.add_argument(
         "--word-correlations-dir", type=str, default=None,
         help="Path to a directory for precomputed word_correlations.json file (loads if exists/else computes and stores)"
@@ -183,6 +187,10 @@ if __name__ == "__main__":
         "--correlation-method", type=str, default="pearson",
         choices=[m.value for m in CorrelationMethod],
         help="Correlation method to use (pearson, spearman, jaccard)"
+    )
+    parser.add_argument(
+        "--no-eval", action="store_true",
+        help="Do not evaluate on the validation set"
     )
     args = parser.parse_args()
 
@@ -260,18 +268,41 @@ if __name__ == "__main__":
         f"Best threshold: {best_threshold:.4f}, Accuracy: {best_accuracy:.4f}, F1: {best_f1:.4f}")
 
     # ------------------------------------------------------------------
-    # Predict and evaluate on validation set
+    # Predict and evaluate
     # ------------------------------------------------------------------
-    df = pl.read_ndjson(DATA_TASK_1_DIR / "val.jsonl")
+    if not args.no_eval:
+        print("Evaluating on validation set...")
+        df = pl.read_ndjson(DATA_TASK_1_DIR / "val.jsonl")
+        ids = df["id"].to_list()
+        texts = df["text"].to_list()
+        labels = df["label"].to_numpy()  # assumed 0/1 labels
+
+        signals = []
+        for id, text, label in tqdm(zip(ids, texts, labels), total=len(ids)):
+            signals.append(get_signal(text))
+
+        predictions = [1 if signal > best_threshold else 0 for signal in signals]
+        accuracy = accuracy_score(labels, predictions)
+        f1 = f1_score(labels, predictions)
+        print(f"Validation accuracy: {accuracy:.4f}, F1: {f1:.4f}")
+
+    # ------------------------------------------------------------------
+    # Save the predictions on JSONL input
+    # ------------------------------------------------------------------
+    df = pl.read_ndjson(args.input_file)
     ids = df["id"].to_list()
     texts = df["text"].to_list()
-    labels = df["label"].to_numpy()  # assumed 0/1 labels
-
     signals = []
-    for id, text, label in tqdm(zip(ids, texts, labels), total=len(ids)):
+    for id, text in tqdm(zip(ids, texts), total=len(ids)):
         signals.append(get_signal(text))
-
     predictions = [1 if signal > best_threshold else 0 for signal in signals]
-    accuracy = accuracy_score(labels, predictions)
-    f1 = f1_score(labels, predictions)
-    print(f"Validation accuracy: {accuracy:.4f}, F1: {f1:.4f}")
+
+
+    os.makedirs(args.output_dir, exist_ok=True)
+    out_file = os.path.join(args.output_dir, "predictions.jsonl")
+
+    predictions = [{"id": id, "label": label} for id, label in zip(ids, predictions)]
+    with open(out_file, "w") as f:
+        for entry in predictions:
+            f.write(json.dumps(entry) + "\n")
+    print(f"Saved predictions to {out_file}")

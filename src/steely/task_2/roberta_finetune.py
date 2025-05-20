@@ -1,7 +1,6 @@
 import polars as pl
 from datasets import Dataset
 from transformers import RobertaTokenizer, RobertaForSequenceClassification, Trainer, TrainingArguments
-from sklearn.model_selection import train_test_split
 import torch
 
 from steely import DATA_TASK_2_DIR, ROOT_DIR
@@ -26,8 +25,8 @@ tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
 def tokenize(batch):
     return tokenizer(batch["text"], padding="max_length", truncation=True, max_length=256)
 
-train_dataset = train_dataset.map(tokenize, batched=True)
-val_dataset = val_dataset.map(tokenize, batched=True)
+train_dataset = train_dataset.map(tokenize, batched=True, num_proc=4, batch_size=5000)
+val_dataset = val_dataset.map(tokenize, batched=True, num_proc=4, batch_size=5000)
 
 # Remove original columns to keep only input_ids, attention_mask, labels
 train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])

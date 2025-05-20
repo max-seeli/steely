@@ -195,15 +195,15 @@ if __name__ == "__main__":
     vectorized_texts_path = args.vectorized_texts_dir
     correlation_method = CorrelationMethod(args.correlation_method)
 
-    if word_correlations_path is not None and vectorized_texts_path is not None:
-        warn("Both word_correlations and vectorized_texts paths are provided. Skipping correlation calculation -> vectorized_texts will not be used.")
-
     word_correlations_file = os.path.join(
         word_correlations_path, "word_correlations.json") if word_correlations_path is not None else None
     vectorized_texts_file = os.path.join(
         vectorized_texts_path, "vectorized_texts.npz") if vectorized_texts_path is not None else None
     tokens_file = os.path.join(
         vectorized_texts_path, "tokens.npy") if vectorized_texts_path is not None else None
+
+    if word_correlations_file is not None and os.path.exists(word_correlations_file) and vectorized_texts_file is not None and os.path.exists(vectorized_texts_file) and tokens_file is not None and os.path.exists(tokens_file):
+        warn("Both word_correlations and vectorized_texts paths are provided. Skipping correlation calculation -> vectorized_texts will not be used.")
 
     # ------------------------------------------------------------------
     # Load training data

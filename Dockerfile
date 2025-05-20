@@ -23,5 +23,8 @@ WORKDIR /app
 # Install Python dependencies
 RUN uv sync --locked
 
+# Install nltk data for offline use
+RUN uv run src/steely/nltk_loader.py
+
 # Set the entrypoint to the inference script
 ENTRYPOINT ["/app/.venv/bin/python3", "/app/src/steely/task_1/correlation_signal_classifier.py"]

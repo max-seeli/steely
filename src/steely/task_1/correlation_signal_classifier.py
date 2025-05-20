@@ -306,7 +306,7 @@ if __name__ == "__main__":
     signals = []
     for id, text in tqdm(zip(ids, texts), total=len(ids)):
         signals.append(get_signal(text))
-    predictions = [1 if signal > best_threshold else 0 for signal in signals]
+    predictions = [1.0 if signal > best_threshold else 0.0 for signal in signals]
 
     os.makedirs(args.output_dir, exist_ok=True)
     out_file = os.path.join(args.output_dir, "predictions.jsonl")

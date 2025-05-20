@@ -4,18 +4,19 @@ from transformers import RobertaTokenizer, RobertaForSequenceClassification
 from torch.utils.data import DataLoader
 from datasets import Dataset
 from tqdm import tqdm
-import json
 import os
+from datetime import datetime
 
 from steely import DATA_TASK_2_DIR, ROOT_DIR
 from sklearn.metrics import accuracy_score, f1_score, recall_score, confusion_matrix
 
 # === Config ===
-MODEL_DIR = ROOT_DIR / "roberta-text-detector"
-INPUT_FILE = DATA_TASK_2_DIR / "dev.jsonl"
+MODEL_DIR = ROOT_DIR / "roberta-text-detector-task2"
+INPUT_FILE = DATA_TASK_2_DIR / "test.jsonl"
 OUTPUT_DIR = ROOT_DIR / "results" / "inference"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "predictions.jsonl")
+current_date = datetime.now().strftime("%Y-%m-%d")
+OUTPUT_FILE = os.path.join(OUTPUT_DIR, f"steely_{current_date}.jsonl")
 BATCH_SIZE = 16
 
 # === Load model & tokenizer ===
@@ -59,13 +60,13 @@ with torch.no_grad():
 
         outputs = model(input_ids=input_ids, attention_mask=attention_mask)
         probs = torch.softmax(outputs.logits, dim=1)[:, 1].tolist()
-        preds = (torch.tensor(probs) > 0.5).int().tolist()
+        preds = torch.argmax(torch.tensor(probs), dim=1).tolist()
 
         true_labels.extend(labels.tolist())
         predicted_labels.extend(preds)
 
-        for id_, prob in zip(ids, probs):
-            results.append({"id": id_, "label": round(prob, 4)})
+        for id_, pred in zip(ids, preds):
+            results.append({"id": id_, "label": pred})
 
 # === Metrics ===
 accuracy = accuracy_score(true_labels, predicted_labels)

@@ -7,16 +7,18 @@ import torch
 from steely import DATA_TASK_2_DIR, ROOT_DIR
 
 # === 1. Load your dataset ===
-df = pl.read_ndjson(DATA_TASK_2_DIR / "train.jsonl").select(["text", "label"])
+df_train = pl.read_ndjson(DATA_TASK_2_DIR / "train.jsonl").select(["text", "label"])
+df_val = pl.read_ndjson(DATA_TASK_2_DIR / "dev.jsonl").select(["text", "label"])
 # Shorten the dataset to 500 samples for faster training
-df = df.sample(n=500, seed=42)
+df_train = df_train.sample(n=500, seed=42)
+df_val = df_val.sample(n=500, seed=42)
 # Cut each text to 256 characters
-df = df.with_columns(pl.col("text").str.slice(0, 256))
-train_df, val_df = train_test_split(df, test_size=0.1, stratify=df["label"], random_state=42)
+df_train = df_train.with_columns(pl.col("text").str.slice(0, 256))
+df_val = df_val.with_columns(pl.col("text").str.slice(0, 256))
 
 # === 2. Convert to HuggingFace Dataset ===
-train_dataset = Dataset.from_polars(train_df)
-val_dataset = Dataset.from_polars(val_df)
+train_dataset = Dataset.from_polars(df_train)
+val_dataset = Dataset.from_polars(df_val)
 
 # === 3. Tokenizer ===
 tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
@@ -77,6 +79,6 @@ results = trainer.evaluate()
 print(results)
 
 # === 10. Save model ===
-model_dir = ROOT_DIR / "roberta-text-detector"
+model_dir = ROOT_DIR / "roberta-text-detector-task2"
 trainer.save_model(model_dir)
 tokenizer.save_pretrained(model_dir)

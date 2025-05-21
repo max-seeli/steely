@@ -98,13 +98,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n_gram", type=int, default=1, help="N-gram size for the classifier."
     )
+    parser.add_argument(
+        "--correlation-method", type=str, default="pearson",
+        choices=[m.value for m in CorrelationMethod],
+        help="Correlation method to use (pearson, spearman, jaccard)"
+    )
+
     args = parser.parse_args()
 
     train_df = pl.read_ndjson(DATA_TASK_1_DIR / "train.jsonl")
     print(f"Using word correlations from {ROOT_DIR / "tmp"}")
     word_correlations = texts_to_word_correlations(
         train_df,
-        CorrelationMethod.PEARSON,
+        CorrelationMethod(args.correlation_method),
         n_gram=3,
         word_correlations_path=ROOT_DIR / "tmp",
         vectorized_texts_path=ROOT_DIR / "tmp",

@@ -101,6 +101,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     train_df = pl.read_ndjson(DATA_TASK_1_DIR / "train.jsonl")
+    print(f"Using word correlations from {ROOT_DIR / "tmp"}")
     word_correlations = texts_to_word_correlations(
         train_df,
         CorrelationMethod.PEARSON,

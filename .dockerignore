@@ -1,4 +1,3 @@
 .venv
 results
-tmp
 data/*.zip

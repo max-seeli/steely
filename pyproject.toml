@@ -14,7 +14,7 @@ dependencies = [
     "pip>=25.1.1",
     "polars>=1.29.0",
     "scikit-learn>=1.6.1",
-    "tira>=0.0.166",
+    "tira",
 ]
 
 [project.scripts]
@@ -23,3 +23,6 @@ steely = "steely:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv.sources]
+tira = { git = "https://github.com/tira-io/tira.git", subdirectory = "python-client" }

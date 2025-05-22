@@ -40,14 +40,14 @@ model.eval()
 # === Load input data ===
 df = pl.read_ndjson(INPUT_FILE).select(["text", "id"])
 # Shorten the dataset to 500 samples for faster inference
-#df = df.sample(n=500, seed=42)
+# df = df.sample(n=500, seed=42)
 # Cut each text to 256 characters
-df = df.with_columns(pl.col("text").str.slice(0, 256))
+# df = df.with_columns(pl.col("text").str.slice(0, 256))
 dataset = Dataset.from_polars(df)
 
 # === Tokenize ===
 def tokenize(batch):
-    return tokenizer(batch["text"], truncation=True, padding=True)
+    return tokenizer(batch["text"], truncation=True, padding="max_length", max_length=256)
 
 dataset = dataset.map(tokenize, batched=True)
 dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "id"])

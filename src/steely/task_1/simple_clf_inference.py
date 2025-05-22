@@ -16,7 +16,7 @@ from steely.task_1.word_correlations import (
 )
 
 
-def extract_features(df, word_correlations):
+def extract_features(df, word_correlations, use_signal=True):
     stop_words = set(stopwords.words("english"))
 
     vectorizer = TfidfVectorizer(use_idf=True, smooth_idf=True)
@@ -64,22 +64,36 @@ def extract_features(df, word_correlations):
         )
 
         # signal score
-        signal_score = CorrelationSignalClassifier.get_ngram_signal(
-            text, word_correlations, 1
-        )
+        if use_signal:
+            # Use the CorrelationSignalClassifier to get the signal score
+            signal_score = CorrelationSignalClassifier.get_ngram_signal(
+                text, word_correlations, 1
+            )
 
-        features.append(
-            {
-                "signal_score": signal_score,
-                "doc_length": doc_length,
-                "avg_sentence_length": avg_sentence_length,
-                "avg_word_length": avg_word_length,
-                "ttr": ttr,
-                "stopword_ratio": stopword_ratio,
-                "punctuation_density": punctuation_density,
-                "avg_idf": avg_idf,
-            }
-        )
+            features.append(
+                {
+                    "signal_score": signal_score,
+                    "doc_length": doc_length,
+                    "avg_sentence_length": avg_sentence_length,
+                    "avg_word_length": avg_word_length,
+                    "ttr": ttr,
+                    "stopword_ratio": stopword_ratio,
+                    "punctuation_density": punctuation_density,
+                    "avg_idf": avg_idf,
+                }
+            )
+        else:
+            features.append(
+                {
+                    "doc_length": doc_length,
+                    "avg_sentence_length": avg_sentence_length,
+                    "avg_word_length": avg_word_length,
+                    "ttr": ttr,
+                    "stopword_ratio": stopword_ratio,
+                    "punctuation_density": punctuation_density,
+                    "avg_idf": avg_idf,
+                }
+            )
 
     return pl.DataFrame(features)
 
@@ -94,6 +108,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "output_dir", type=str, help="Directory to save the output predictions."
     )
+    parser.add_argument("--no-signal", action="store_true", help="Disable signal extraction.")
 
     args = parser.parse_args()
 
@@ -110,8 +125,9 @@ if __name__ == "__main__":
         vectorized_texts_path=ROOT_DIR / "tmp",
     )
 
-    features_train = extract_features(train_df, word_correlations)
-    features_inference = extract_features(inference_df, word_correlations)
+    use_signal = not args.no_signal
+    features_train = extract_features(train_df, word_correlations, use_signal=use_signal)
+    features_inference = extract_features(inference_df, word_correlations, use_signal=use_signal)
 
     X_train = features_train.to_numpy()
     y_train = train_df["label"].to_numpy()

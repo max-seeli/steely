@@ -1,6 +1,6 @@
 import json
 import os
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 
 import numpy as np
 import polars as pl
@@ -22,12 +22,25 @@ class CorrelationSignalClassifier:
 
         self.thresholds = None
 
+    @staticmethod
+    def get_ngram_signal(
+        text: str, word_correlations: Dict[str, float], n: int
+    ) -> float:
+        """Get the signal of a text."""
+        tokens = stem_tokenise(text)
+        ngrams = [" ".join(tokens[i : i + n]) for i in range(len(tokens) - n + 1)]
+        return np.sum(
+            [word_correlations[token] for token in ngrams if token in word_correlations]
+        ) / len(ngrams)
+
     def train(self, texts: List[str], labels: np.ndarray):
         """Train the model on the given texts and labels."""
 
         signals = []
         for text in tqdm(texts):
-            signals.append(self.get_ngram_signal(text, self.n_gram))
+            signals.append(
+                self.get_ngram_signal(text, self.word_correlations, self.n_gram)
+            )
 
         best_threshold, best_accuracy, best_f1 = self.find_thresholds(signals, labels)
         print(
@@ -39,25 +52,16 @@ class CorrelationSignalClassifier:
     def predict(self, text: Union[str, List[str]]) -> Union[int, List[int]]:
         """Predict the label for the given text."""
         if isinstance(text, str):
-            signal = self.get_ngram_signal(text, self.n_gram)
+            signal = self.get_ngram_signal(text, self.word_correlations, self.n_gram)
             return 1 if signal > self.thresholds else 0
         elif isinstance(text, list):
-            signals = [self.get_ngram_signal(t, self.n_gram) for t in text]
+            signals = [
+                self.get_ngram_signal(t, self.word_correlations, self.n_gram)
+                for t in text
+            ]
             return [1 if signal > self.thresholds else 0 for signal in signals]
         else:
             raise ValueError("Input must be a string or a list of strings.")
-
-    def get_ngram_signal(self, text: str, n: int) -> float:
-        """Get the signal of a text."""
-        tokens = stem_tokenise(text)
-        ngrams = [" ".join(tokens[i : i + n]) for i in range(len(tokens) - n + 1)]
-        return np.sum(
-            [
-                self.word_correlations[token]
-                for token in ngrams
-                if token in self.word_correlations
-            ]
-        ) / len(ngrams)
 
     def find_thresholds(
         self, signals: List[float], labels: np.ndarray
@@ -99,15 +103,17 @@ if __name__ == "__main__":
         "--n_gram", type=int, default=1, help="N-gram size for the classifier."
     )
     parser.add_argument(
-        "--correlation-method", type=str, default="pearson",
+        "--correlation-method",
+        type=str,
+        default="pearson",
         choices=[m.value for m in CorrelationMethod],
-        help="Correlation method to use (pearson, spearman, jaccard)"
+        help="Correlation method to use (pearson, spearman, jaccard)",
     )
 
     args = parser.parse_args()
 
     train_df = pl.read_ndjson(DATA_TASK_1_DIR / "train.jsonl")
-    print(f"Using word correlations from {ROOT_DIR / "tmp"}")
+    print(f"Using word correlations from {ROOT_DIR / 'tmp'}")
     word_correlations = texts_to_word_correlations(
         train_df,
         CorrelationMethod(args.correlation_method),

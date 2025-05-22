@@ -1,61 +1,38 @@
-from steely import DATA_TASK_1_DIR, ROOT_DIR
-
-import polars as pl
-import numpy as np
-from tqdm import tqdm
 import json
 
-from nltk import word_tokenize
+import numpy as np
+import polars as pl
 from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
-from nltk.tokenize import word_tokenize
-import nltk
-
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, accuracy_score
 from sklearn.feature_extraction.text import TfidfVectorizer
-from datetime import datetime
+from tqdm import tqdm
 
-nltk.download("punkt")
-nltk.download('punkt_tab')
-nltk.download("stopwords")
-nltk.download("wordnet")
-nltk.download("omw-1.4")
+from steely import DATA_TASK_1_DIR, ROOT_DIR
+from steely.nltk_loader import load_nltk_data
+from steely.task_1.correlation_signal_classifier import CorrelationSignalClassifier
+from steely.task_1.word_correlations import (
+    CorrelationMethod,
+    texts_to_word_correlations,
+)
 
-def stem_tokenise(text: str) -> list[str]:
-    """Lower-case, tokenise, remove punctuation & stop-words, then stem."""
-    tokens = [t for t in word_tokenize(text.lower())
-              if t.isalpha()]  # and t not in stop_words]
-    return [stemmer.stem(t) for t in tokens]
 
-def get_signal(text: str, word_correlations) -> float:
-    """Get the signal of a text."""
-    tokens = stem_tokenise(text)
-    return np.sum([word_correlations[token] for token in tokens if token in word_correlations]) / len(tokens)
+def extract_features(df, word_correlations):
+    stop_words = set(stopwords.words("english"))
 
-def load_word_correlations(word_correlations_file):
-    with open(word_correlations_file, "r") as f:
-        word_correlations = json.load(f)
-    return word_correlations
-
-def extract_features_with_correlation_scores(dataframe, scores):
-    stop_words = set(stopwords.words('english'))
-    
     vectorizer = TfidfVectorizer(use_idf=True, smooth_idf=True)
-    vectorizer.fit([(doc[1]) for doc in dataframe.iter_rows()])
+    vectorizer.fit([text for text in df["text"]])
     idf_values = vectorizer.idf_
 
     features = []
-    for doc in tqdm(dataframe.iter_rows(), total=len(dataframe)):
-        text = doc[1]
-        label = doc[3]
-
+    for text in tqdm(df["text"], total=len(df)):
         # document length
         doc_length = len(text)
 
         # avg sentence length
-        sentences = text.split('.')
-        avg_sentence_length = sum(len(sentence.split()) for sentence in sentences if sentence.strip()) / len(sentences)
+        sentences = text.split(".")
+        avg_sentence_length = sum(
+            len(sentence.split()) for sentence in sentences if sentence.strip()
+        ) / len(sentences)
 
         # avg word length
         words = text.split()
@@ -70,69 +47,91 @@ def extract_features_with_correlation_scores(dataframe, scores):
         stopword_ratio = stopword_count / len(words) if words else 0
 
         # punctuation density
-        punctuation_count = sum(1 for char in text if char in '.,;:!?')
+        punctuation_count = sum(1 for char in text if char in ".,;:!?")
         punctuation_density = punctuation_count / len(text) if len(text) > 0 else 0
-        
-        # inverse document frequency (IDF)
-        avg_idf = np.mean([idf_values[vectorizer.vocabulary_.get(word.lower(), 0)] for word in words if word.lower() in vectorizer.vocabulary_]) if words else 0
-        
-        # signal score
-        signal_score = get_signal(text, scores)
 
-        features.append({
-            'signal_score': signal_score,
-            'doc_length': doc_length,
-            'avg_sentence_length': avg_sentence_length,
-            'avg_word_length': avg_word_length,
-            'ttr': ttr,
-            'stopword_ratio': stopword_ratio,
-            'punctuation_density': punctuation_density,
-            'avg_idf': avg_idf,
-            'label': label
-        })
+        # inverse document frequency (IDF)
+        avg_idf = (
+            np.mean(
+                [
+                    idf_values[vectorizer.vocabulary_.get(word.lower(), 0)]
+                    for word in words
+                    if word.lower() in vectorizer.vocabulary_
+                ]
+            )
+            if words
+            else 0
+        )
+
+        # signal score
+        signal_score = CorrelationSignalClassifier.get_ngram_signal(
+            text, word_correlations, 1
+        )
+
+        features.append(
+            {
+                "signal_score": signal_score,
+                "doc_length": doc_length,
+                "avg_sentence_length": avg_sentence_length,
+                "avg_word_length": avg_word_length,
+                "ttr": ttr,
+                "stopword_ratio": stopword_ratio,
+                "punctuation_density": punctuation_density,
+                "avg_idf": avg_idf,
+            }
+        )
 
     return pl.DataFrame(features)
 
+
 if __name__ == "__main__":
-    
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(
+        description="Run inference on the CorrelationSignalClassifier model."
+    )
+    parser.add_argument("input_file", type=str, help="Path to the input JSONL file.")
+    parser.add_argument(
+        "output_dir", type=str, help="Directory to save the output predictions."
+    )
+
+    args = parser.parse_args()
+
+    load_nltk_data()
+
     train_df = pl.read_ndjson(DATA_TASK_1_DIR / f"train.jsonl")
-    val_df = pl.read_ndjson(DATA_TASK_1_DIR / f"val.jsonl")
-    labels = {
-        0: "Human",
-        1: "AI"
-    }
+    inference_df = pl.read_ndjson(args.input_file)
 
-    stemmer = PorterStemmer()
-    stop_words = set(stopwords.words("english"))
+    word_correlations = texts_to_word_correlations(
+        train_df,
+        CorrelationMethod.PEARSON,
+        n_gram=1,
+        word_correlations_path=ROOT_DIR / "tmp",
+        vectorized_texts_path=ROOT_DIR / "tmp",
+    )
 
-    word_correlations = load_word_correlations(ROOT_DIR / "tmp" / f"word_correlations.json")
+    features_train = extract_features(train_df, word_correlations)
+    features_inference = extract_features(inference_df, word_correlations)
 
-    features_train = extract_features_with_correlation_scores(train_df, word_correlations)
-    features_val = extract_features_with_correlation_scores(val_df, word_correlations)
+    X_train = features_train.to_numpy()
+    y_train = train_df["label"].to_numpy()
+    X_inference = features_inference.to_numpy()
 
-    X_train = features_train.drop('label').to_numpy()
-    y_train = features_train['label'].to_numpy()
-    X_val = features_val.drop('label').to_numpy()
-    y_val = features_val['label'].to_numpy()
-
-    rf_model = RandomForestClassifier(random_state=777,
-                                    n_estimators=100,
-                                    max_depth=None,
-                                    max_features='sqrt',
-                                    min_samples_split=10,
-                                    min_samples_leaf=1)
-
+    rf_model = RandomForestClassifier(
+        random_state=777,
+        n_estimators=200,
+        max_depth=None,
+        min_samples_split=5,
+        min_samples_leaf=2,
+        max_features="log2",
+    )
     rf_model.fit(X_train, y_train)
 
-    y_pred_proba = rf_model.predict_proba(X_val)[:, 1]
+    y_pred_proba = rf_model.predict_proba(X_inference)[:, 1]
     y_pred = y_pred_proba > 0.5
 
-    print("Validation Accuracy:", accuracy_score(y_val, y_pred))
-    print("\nClassification Report:\n", classification_report(y_val, y_pred))
-    
-    current_date = datetime.now().strftime("%Y-%m-%d")
-    output_file = f"results/steely_{current_date}.jsonl"
-    
+    output_file = f"{args.output_dir}/predictions.jsonl"
+
     with open(output_file, "w") as f:
         for id, prob in enumerate(y_pred_proba):
             result = {"id": int(id), "label": round(prob, 4)}

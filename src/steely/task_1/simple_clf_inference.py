@@ -132,9 +132,10 @@ if __name__ == "__main__":
 
     output_file = f"{args.output_dir}/predictions.jsonl"
 
+    ids = inference_df["id"].to_list()
     with open(output_file, "w") as f:
-        for id, prob in enumerate(y_pred_proba):
-            result = {"id": int(id), "label": round(prob, 4)}
+        for id, prob in zip(ids, y_pred_proba):
+            result = {"id": id, "label": round(prob, 4)}
             f.write(json.dumps(result) + "\n")
 
     print(f"Predictions saved to {output_file}")

@@ -53,8 +53,8 @@ If you use this method in your research, please cite the paper:
 @inproceedings{seeliger2025human,
     title={Human or Not? Light-Weight and Interpretable Detection of AI-Generated Text},
     author={Seeliger, Maximilian and Styll, Patrick and Staudinger, Moritz and Hanbury, Allan},
-    booktitle={CLEF 2025 Working Notes},
+    booktitle={CLEF Working Notes},
     year={2025},
-    organization={PAN 2025, Madrid, Spain}
+    address={Madrid, Spain}
 }
 ```
